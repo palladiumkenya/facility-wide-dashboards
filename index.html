@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claims Dashboards Mockup</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="filters-sidebar" aria-label="Dashboard filters">
+        <div class="filters-header">
+          <strong>Filters</strong>
+          <div class="filters-icons"><button aria-label="Filter settings">gear</button><button aria-label="Collapse filters">|&lt;</button></div>
+        </div>
+        <button class="edit-filters">+ ADD/EDIT FILTERS</button>
+
+        <div class="filter-list">
+          <div class="filter-control">
+            <label>Assessment Period</label>
+            <button id="date-button" data-filter="Assessment Period"><span>Last day</span><span class="calendar-symbol">cal</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>County</label>
+            <button data-filter="County" data-placeholder="42 options"><span>42 options</span><span>v</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>Sub-County</label>
+            <button data-filter="Sub-County" data-placeholder="282 options"><span>282 options</span><span>v</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>Facility</label>
+            <button data-filter="Facility" data-placeholder="1000 options"><span>1000 options</span><span>v</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>Ownership</label>
+            <button data-filter="Ownership" data-placeholder="Ownership"><span>Ownership</span><span>v</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>Facility Level</label>
+            <button data-filter="Facility Level" data-placeholder="Facility Level"><span>Facility Level</span><span>v</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>Provider</label>
+            <button data-filter="Provider" data-placeholder="Provider"><span>Provider</span><span>v</span></button>
+          </div>
+
+          <div class="filter-control">
+            <label>Scheme</label>
+            <button data-filter="Scheme" data-placeholder="Scheme"><span>Scheme</span><span>v</span></button>
+          </div>
+
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <div class="dashboard-tabs" aria-label="Dashboard pages">
+          <button class="dashboard-tab active" data-page="facilityActivation">Facility Activation</button>
+          <button class="dashboard-tab" data-page="workloadOverview">Facility Workload Overview</button>
+          <button class="dashboard-tab" data-page="inpatientOverview">Inpatient Overview</button>
+          <button class="dashboard-tab" data-page="prescription">Prescription</button>
+          <button class="dashboard-tab" data-page="maternalChildHealth">Maternal &amp; Child Health</button>
+          <button class="dashboard-tab" data-page="childWelfare">Child Welfare Clinic &amp; Immunization</button>
+          <button class="dashboard-tab" data-page="maternity">Maternity</button>
+          <button class="dashboard-tab" data-page="newbornChildHealth">Newborn &amp; Child Health</button>
+          <button class="dashboard-tab" data-page="healthFinancing">Health Financing &amp; Revenue</button>
+          <button class="dashboard-tab" data-page="digitization">Digitization</button>
+        </div>
+
+        <section class="report">
+          <header class="report-header">
+            <h1 id="report-title">Facility Activation</h1>
+            <div class="period-chip">Assessment Period: <span id="period-label">Last day</span></div>
+          </header>
+
+          <div id="page-content"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="overlay hidden" id="overlay"></div>
+    <section class="dialog hidden" id="dialog" aria-live="polite"></section>
+    <div class="toast hidden" id="toast"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
