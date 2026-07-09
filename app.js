@@ -176,6 +176,15 @@ function kpi(label, key, value, subtext, color) {
   </button>`;
 }
 
+function moneyKpi(label, key, value, subtext, color) {
+  const active = state.focusMetric === key ? " active" : "";
+  return `<button class="kpi-card money-card ${color}${active}" data-metric="${key}">
+    <span class="label">${label}</span>
+    <span class="value">${money(value)}</span>
+    <span class="subtext">${subtext}</span>
+  </button>`;
+}
+
 function panel(title, body, extraClass = "") {
   return `<section class="panel ${extraClass}">
     <div class="panel-header">
@@ -607,8 +616,6 @@ function claimsPage() {
   const labels = ["Jul 1", "Jul 5", "Jul 10", "Jul 15", "Jul 20", "Jul 25", "Jul 31"];
   const submittedSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => t.submitted * n);
   const paidSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => t.paid * n);
-  const submittedAmountSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => amount.submitted * n);
-  const paidAmountSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => amount.paid * n);
   const statusItems = [
     { label: "Submitted", short: "Submitted", value: t.submitted, color: "#285a9e" },
     { label: "Rejected", short: "Rejected", value: t.rejected, color: "#8ea9cf" },
@@ -616,37 +623,21 @@ function claimsPage() {
     { label: "Approved", short: "Approved", value: t.approved, color: "#72bd4d" },
     { label: "Paid", short: "Paid", value: t.paid, color: "#4f8fcc" }
   ];
-  const amountItems = [
-    { label: "Submitted Amount", short: "Submitted", value: amount.submitted, color: "#285a9e" },
-    { label: "Rejected Amount", short: "Rejected", value: amount.rejected, color: "#8ea9cf" },
-    { label: "Under Review Amount", short: "Review", value: amount.review, color: "#efd585" },
-    { label: "Approved Amount", short: "Approved", value: amount.approved, color: "#72bd4d" },
-    { label: "Paid Amount", short: "Paid", value: amount.paid, color: "#4f8fcc" }
-  ];
 
   pageContent.innerHTML = `
     <div class="active-filter-strip">${activeFilterText()}</div>
     <div class="section-title">Claims Submitted and Processing Status</div>
     <div class="kpi-grid">
-      ${kpi("Claims submitted", "submitted", t.submitted, "Valid claim forms sent this period", "blue")}
-      ${kpi("Claims rejected", "rejected", t.rejected, `${pct(t.rejected, t.submitted)} of ${fmt(t.submitted)} submitted claims`, "green")}
-      ${kpi("Claims under review", "review", t.review, `${pct(t.review, t.submitted)} awaiting final decision`, "blue")}
-      ${kpi("Claims approved", "approved", t.approved, `${pct(t.approved, t.submitted)} of submitted claims`, "green")}
-      ${kpi("Claims Paid", "paid", t.paid, `${pct(t.paid, t.approved)} of approved claims`, "blue")}
-    </div>
-    <div class="section-title finance-section-title">Claims Amounts</div>
-    <div class="kpi-grid four">
-      ${kpi("Submitted amount", "submittedAmount", amount.submitted, `${money(amount.submitted)} claimed this period`, "blue")}
-      ${kpi("Approved amount", "approvedAmount", amount.approved, `${pct(amount.approved, amount.submitted)} of submitted amount`, "green")}
-      ${kpi("Paid amount", "paidAmount", amount.paid, `${pct(amount.paid, amount.approved)} of approved amount`, "blue")}
-      ${kpi("Rejected amount at risk", "rejectedAmount", amount.rejected, `${money(amount.rejected)} at risk`, "green")}
+      ${kpi("Claims submitted", "submitted", t.submitted, `${money(amount.submitted)} total claimed`, "blue")}
+      ${kpi("Claims rejected", "rejected", t.rejected, `${pct(t.rejected, t.submitted)} rejected | ${money(amount.rejected)} at risk`, "green")}
+      ${kpi("Claims under review", "review", t.review, `${pct(t.review, t.submitted)} in review | ${money(amount.review)} pending`, "blue")}
+      ${kpi("Claims approved", "approved", t.approved, `${pct(t.approved, t.submitted)} approved | ${money(amount.approved)} approved`, "green")}
+      ${kpi("Claims Paid", "paid", t.paid, `${pct(t.paid, t.approved)} paid | ${money(amount.paid)} paid`, "blue")}
     </div>
 
     <div class="dashboard-grid">
       ${panel("Claims Submitted vs Paid Over Time", trendChart(submittedSeries, paidSeries, labels, "Claims submitted", "Claims paid"))}
       ${panel("Claims by Current Status", barChart(statusItems))}
-      ${panel("Claim Amount Submitted vs Paid Over Time", trendChart(submittedAmountSeries, paidAmountSeries, labels, "Submitted amount", "Paid amount"))}
-      ${panel("Claim Amount by Current Status", barChart(amountItems))}
       ${panel("Claims Processing Outcome", outcomePanel(t))}
       ${panel("Claims Submitted by Facility Level", table([
         { label: "Facility Level", key: "level" },
@@ -695,6 +686,109 @@ function outcomePanel(t) {
       <div class="legend-row"><span class="swatch pale"></span><span>Rejected claims</span><strong>${pct(t.rejected, t.submitted)}</strong></div>
     </div>
   </div>`;
+}
+
+function hieClaimsPerformanceSummary() {
+  const statuses = [
+    { label: "Sent for Payment Processing", claims: 1723, share: 53.1, amount: "KES 9.25M", color: "#218f73" },
+    { label: "Review", claims: 505, share: 15.6, amount: "KES 4.69M", color: "#3f77ab" },
+    { label: "Approved", claims: 404, share: 12.5, amount: "KES 3.04M", color: "#5bad56" },
+    { label: "Rejected", claims: 319, share: 9.8, amount: "KES 4.04M", color: "#c9453f" },
+    { label: "Sent Back", claims: 290, share: 8.9, amount: "KES 3.84M", color: "#e59b2f" },
+    { label: "Surveillance + Queued", claims: 4, share: 0.1, amount: "KES 44K", color: "#8a56e2" }
+  ];
+  const rejectedProviders = [
+    ["Baringo County Referral Hospital", 41],
+    ["Kapsabet County Referral Hospital", 22],
+    ["Ngong Sub County Hospital", 21],
+    ["Annex Hospital Nakuru", 14],
+    ["J.M Kariuki Memorial County Referral Hospital", 11],
+    ["Migori County Referral Hospital", 8],
+    ["Masaba Sub-County Hospital", 6],
+    ["Sirisia Sub-County Hospital", 6]
+  ];
+  const sentBackProviders = [
+    ["Baringo County Referral Hospital", 25],
+    ["Migori County Referral Hospital", 17],
+    ["Eldama Ravine Sub-County Hospital", 12],
+    ["Kapsabet County Referral Hospital", 11],
+    ["Muhuru Sub-County Hospital", 7],
+    ["Macalder Sub-County Hospital", 7],
+    ["Samburu County Teaching & Referral Hospital", 7],
+    ["Ongata Rongai Sub County Hospital", 5]
+  ];
+
+  return `<section class="hie-summary" aria-label="HIE claims performance summary">
+    <header class="hie-hero">
+      <div>
+        <h2>HIE Claims Performance Summary</h2>
+        <p>Claims lifecycle status - HIE-sourced claims data</p>
+      </div>
+      <div class="hie-report-meta">
+        <strong>Report date: 08 Jul 2026</strong>
+        <span>Period: 01 Jul 2026 - to date</span>
+        <span>Total claims: <strong>3,245</strong> - <strong>KES 24.9M</strong></span>
+      </div>
+    </header>
+
+    <div class="hie-kpi-row">
+      ${hieKpi("Total Claims", "3,245", "KES 24,904,325 total value", "teal")}
+      ${hieKpi("Progressing to Payment", "65.6%", "Approved + Sent for Payment Processing", "teal")}
+      ${hieKpi("Rejected", "319", "KES 4.04M at risk", "red", "9.8%")}
+      ${hieKpi("Sent Back", "290", "KES 3.84M held for correction", "amber", "8.9%")}
+    </div>
+
+    <section class="hie-panel">
+      <h3>Claim Status Distribution <span>(n = 3,245)</span></h3>
+      <div class="hie-stacked-bar">
+        ${statuses.map((item) => `<span style="width:${item.share}%; background:${item.color};" title="${item.label}: ${item.share}%"></span>`).join("")}
+      </div>
+      <div class="hie-status-grid">
+        ${statuses.map((item) => `<div class="hie-status-item">
+          <span class="hie-dot" style="background:${item.color};"></span>
+          <strong>${item.label}</strong>
+          <span>${fmt(item.claims)}</span>
+          <b>${item.share}%</b>
+          <span>${item.amount}</span>
+        </div>`).join("")}
+      </div>
+      <div class="hie-readout">
+        <strong>Read:</strong> ~1 in 5 claims (18.8%) is currently blocked in Rejected or Sent Back status - together worth <strong>KES 7.87M</strong>, larger than the value sitting in Review.
+      </div>
+    </section>
+
+    <div class="hie-watch-grid">
+      ${providerWatchList("Providers to Watch - Rejected Claims", rejectedProviders, "red")}
+      ${providerWatchList("Providers to Watch - Sent-Back Claims", sentBackProviders, "amber")}
+    </div>
+    <div class="hie-footnote">
+      <span>Source: HIE summary</span>
+      <span>Baringo County Referral Hospital ranks #1 in both rejection and sent-back volume - recommend targeted provider engagement</span>
+    </div>
+  </section>`;
+}
+
+function hieKpi(label, value, subtext, tone, percent = "") {
+  return `<article class="hie-kpi ${tone}">
+    <strong>${value}${percent ? ` <small>(${percent})</small>` : ""}</strong>
+    <span>${label}</span>
+    <p>${subtext}</p>
+  </article>`;
+}
+
+function providerWatchList(title, rows, tone) {
+  const max = Math.max(...rows.map((row) => row[1]), 1);
+  return `<section class="hie-panel hie-watch-panel">
+    <h3>${title} <span>(top 8)</span></h3>
+    <div class="hie-provider-list">
+      ${rows.map(([name, value], index) => `<div class="hie-provider-row">
+        <span class="hie-rank">${index + 1}</span>
+        <strong>${name}</strong>
+        <div class="hie-provider-track"><span class="${tone}" style="width:${(value / max) * 100}%;"></span></div>
+        <b>${value}</b>
+      </div>`).join("")}
+    </div>
+  </section>`;
 }
 
 function healthFinancingPage() {
@@ -1021,8 +1115,6 @@ function claimsSection() {
   const labels = ["Jul 1", "Jul 5", "Jul 10", "Jul 15", "Jul 20", "Jul 25", "Jul 31"];
   const submittedSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => t.submitted * n);
   const paidSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => t.paid * n);
-  const submittedAmountSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => amount.submitted * n);
-  const paidAmountSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => amount.paid * n);
   const statusItems = [
     { label: "Submitted", short: "Submitted", value: t.submitted, color: "#285a9e" },
     { label: "Rejected", short: "Rejected", value: t.rejected, color: "#8ea9cf" },
@@ -1030,36 +1122,20 @@ function claimsSection() {
     { label: "Approved", short: "Approved", value: t.approved, color: "#72bd4d" },
     { label: "Paid", short: "Paid", value: t.paid, color: "#4f8fcc" }
   ];
-  const amountItems = [
-    { label: "Submitted Amount", short: "Submitted", value: amount.submitted, color: "#285a9e" },
-    { label: "Rejected Amount", short: "Rejected", value: amount.rejected, color: "#8ea9cf" },
-    { label: "Under Review Amount", short: "Review", value: amount.review, color: "#efd585" },
-    { label: "Approved Amount", short: "Approved", value: amount.approved, color: "#72bd4d" },
-    { label: "Paid Amount", short: "Paid", value: amount.paid, color: "#4f8fcc" }
-  ];
 
   return `
     ${patientRevenueSummary()}
     <div class="section-title finance-section-title">Claims Overview</div>
     <div class="kpi-grid">
-      ${kpi("Claims submitted", "submitted", t.submitted, "Valid claim forms sent this period", "blue")}
-      ${kpi("Claims rejected", "rejected", t.rejected, `${pct(t.rejected, t.submitted)} of ${fmt(t.submitted)} submitted claims`, "green")}
-      ${kpi("Claims under review", "review", t.review, `${pct(t.review, t.submitted)} awaiting final decision`, "blue")}
-      ${kpi("Claims approved", "approved", t.approved, `${pct(t.approved, t.submitted)} of submitted claims`, "green")}
-      ${kpi("Claims paid", "paid", t.paid, `${pct(t.paid, t.approved)} of approved claims`, "blue")}
-    </div>
-    <div class="section-title finance-section-title">Claims Amounts</div>
-    <div class="kpi-grid four">
-      ${kpi("Submitted amount", "submittedAmount", amount.submitted, `${money(amount.submitted)} claimed this period`, "blue")}
-      ${kpi("Approved amount", "approvedAmount", amount.approved, `${pct(amount.approved, amount.submitted)} of submitted amount`, "green")}
-      ${kpi("Paid amount", "paidAmount", amount.paid, `${pct(amount.paid, amount.approved)} of approved amount`, "blue")}
-      ${kpi("Rejected amount at risk", "rejectedAmount", amount.rejected, `${money(amount.rejected)} at risk`, "green")}
+      ${kpi("Claims submitted", "submitted", t.submitted, `${money(amount.submitted)} total claimed`, "blue")}
+      ${kpi("Claims rejected", "rejected", t.rejected, `${pct(t.rejected, t.submitted)} rejected | ${money(amount.rejected)} at risk`, "green")}
+      ${kpi("Claims under review", "review", t.review, `${pct(t.review, t.submitted)} in review | ${money(amount.review)} pending`, "blue")}
+      ${kpi("Claims approved", "approved", t.approved, `${pct(t.approved, t.submitted)} approved | ${money(amount.approved)} approved`, "green")}
+      ${kpi("Claims paid", "paid", t.paid, `${pct(t.paid, t.approved)} paid | ${money(amount.paid)} paid`, "blue")}
     </div>
     <div class="dashboard-grid">
       ${panel("Claims Submitted vs Paid Over Time", trendChart(submittedSeries, paidSeries, labels, "Claims submitted", "Claims paid"))}
       ${panel("Claims by Current Status", barChart(statusItems))}
-      ${panel("Claim Amount Submitted vs Paid Over Time", trendChart(submittedAmountSeries, paidAmountSeries, labels, "Submitted amount", "Paid amount"))}
-      ${panel("Claim Amount by Current Status", barChart(amountItems))}
       ${panel("Claims Submitted by Facility Level", table([
         { label: "Facility Level", key: "level" },
         { label: "Submitted", key: "submitted" },
