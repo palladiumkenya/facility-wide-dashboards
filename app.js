@@ -39,7 +39,7 @@ baseClaimsRows.forEach((row, index) => {
 
 const state = {
   page: "healthFinancing",
-  financeSubpage: "biometrics",
+  financeSubpage: "claims",
   biometricsSubpage: "authorizationAttempts",
   filters: {},
   dateIndex: 0,
@@ -89,6 +89,12 @@ function fmt(value) {
   return Math.round(value).toLocaleString("en-US");
 }
 
+function money(value) {
+  if (Math.abs(value) >= 1000000) return `KES ${(value / 1000000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1000) return `KES ${(value / 1000).toFixed(1)}K`;
+  return `KES ${fmt(value)}`;
+}
+
 function pct(value, total) {
   if (!total) return "0%";
   return `${Math.round((value / total) * 100)}%`;
@@ -125,6 +131,18 @@ function totals(rows = getRows()) {
     acc.paid += scaled(row.paid);
     acc.rejected += scaled(row.rejected);
     acc.review += scaled(row.review);
+    return acc;
+  }, { submitted: 0, approved: 0, paid: 0, rejected: 0, review: 0 });
+}
+
+function claimAmounts(rows = getRows()) {
+  return rows.reduce((acc, row) => {
+    const unitCost = row.type === "Inpatient" ? 8200 : row.type === "Maternity" ? 6400 : row.type === "Emergency" ? 5400 : 3100;
+    acc.submitted += scaled(row.submitted * unitCost);
+    acc.approved += scaled(row.approved * unitCost);
+    acc.paid += scaled(row.paid * unitCost * 0.97);
+    acc.rejected += scaled(row.rejected * unitCost);
+    acc.review += scaled(row.review * unitCost);
     return acc;
   }, { submitted: 0, approved: 0, paid: 0, rejected: 0, review: 0 });
 }
@@ -212,7 +230,8 @@ function table(headers, rows, heatColumns = [], tableId = "table") {
       ${rows.map((row) => `<tr>${headers.map((h, index) => {
         const heat = heatColumns.includes(h.key) ? (index % 3 === 0 ? "heat-blue" : index % 3 === 1 ? "heat-green" : "heat-amber") : "";
         const numeric = typeof row[h.key] === "number" || String(row[h.key]).includes("%") ? "num" : "";
-        return `<td class="${numeric} ${heat}">${typeof row[h.key] === "number" ? fmt(row[h.key]) : row[h.key]}</td>`;
+        const formatted = h.key.toLowerCase().includes("amount") && typeof row[h.key] === "number" ? money(row[h.key]) : typeof row[h.key] === "number" ? fmt(row[h.key]) : row[h.key];
+        return `<td class="${numeric} ${heat}">${formatted}</td>`;
       }).join("")}</tr>`).join("")}
     </tbody>
   </table>`;
@@ -229,9 +248,12 @@ function claimsRowsForTable() {
     county: row.county,
     level: row.level,
     submitted: scaled(row.submitted),
+    submittedAmount: scaled(row.submitted * (row.type === "Inpatient" ? 8200 : row.type === "Maternity" ? 6400 : row.type === "Emergency" ? 5400 : 3100)),
     approved: scaled(row.approved),
+    approvedAmount: scaled(row.approved * (row.type === "Inpatient" ? 8200 : row.type === "Maternity" ? 6400 : row.type === "Emergency" ? 5400 : 3100)),
     approvedPct: pct(scaled(row.approved), scaled(row.submitted)),
     paid: scaled(row.paid),
+    paidAmount: scaled(row.paid * (row.type === "Inpatient" ? 8200 : row.type === "Maternity" ? 6400 : row.type === "Emergency" ? 5400 : 3100) * 0.97),
     paidPct: pct(scaled(row.paid), scaled(row.approved)),
     rejected: scaled(row.rejected)
   }));
@@ -251,11 +273,15 @@ function sortRows(rows) {
 function facilityRows() {
   const grouped = {};
   getRows().forEach((row) => {
-    grouped[row.level] ||= { level: row.level, submitted: 0, approved: 0, rejected: 0, paid: 0 };
+    const unitCost = row.type === "Inpatient" ? 8200 : row.type === "Maternity" ? 6400 : row.type === "Emergency" ? 5400 : 3100;
+    grouped[row.level] ||= { level: row.level, submitted: 0, submittedAmount: 0, approved: 0, approvedAmount: 0, rejected: 0, paid: 0, paidAmount: 0 };
     grouped[row.level].submitted += scaled(row.submitted);
+    grouped[row.level].submittedAmount += scaled(row.submitted * unitCost);
     grouped[row.level].approved += scaled(row.approved);
+    grouped[row.level].approvedAmount += scaled(row.approved * unitCost);
     grouped[row.level].rejected += scaled(row.rejected);
     grouped[row.level].paid += scaled(row.paid);
+    grouped[row.level].paidAmount += scaled(row.paid * unitCost * 0.97);
   });
   return Object.values(grouped).map((row) => ({
     ...row,
@@ -576,16 +602,26 @@ function digitizationPage() {
 function claimsPage() {
   reportTitle.textContent = "Claims Overview";
   const t = totals();
+  const amount = claimAmounts();
   const factor = dateRanges[state.dateIndex].factor;
   const labels = ["Jul 1", "Jul 5", "Jul 10", "Jul 15", "Jul 20", "Jul 25", "Jul 31"];
   const submittedSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => t.submitted * n);
   const paidSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => t.paid * n);
+  const submittedAmountSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => amount.submitted * n);
+  const paidAmountSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => amount.paid * n);
   const statusItems = [
     { label: "Submitted", short: "Submitted", value: t.submitted, color: "#285a9e" },
     { label: "Rejected", short: "Rejected", value: t.rejected, color: "#8ea9cf" },
     { label: "Under Review", short: "Review", value: t.review, color: "#efd585" },
     { label: "Approved", short: "Approved", value: t.approved, color: "#72bd4d" },
     { label: "Paid", short: "Paid", value: t.paid, color: "#4f8fcc" }
+  ];
+  const amountItems = [
+    { label: "Submitted Amount", short: "Submitted", value: amount.submitted, color: "#285a9e" },
+    { label: "Rejected Amount", short: "Rejected", value: amount.rejected, color: "#8ea9cf" },
+    { label: "Under Review Amount", short: "Review", value: amount.review, color: "#efd585" },
+    { label: "Approved Amount", short: "Approved", value: amount.approved, color: "#72bd4d" },
+    { label: "Paid Amount", short: "Paid", value: amount.paid, color: "#4f8fcc" }
   ];
 
   pageContent.innerHTML = `
@@ -598,19 +634,31 @@ function claimsPage() {
       ${kpi("Claims approved", "approved", t.approved, `${pct(t.approved, t.submitted)} of submitted claims`, "green")}
       ${kpi("Claims Paid", "paid", t.paid, `${pct(t.paid, t.approved)} of approved claims`, "blue")}
     </div>
+    <div class="section-title finance-section-title">Claims Amounts</div>
+    <div class="kpi-grid four">
+      ${kpi("Submitted amount", "submittedAmount", amount.submitted, `${money(amount.submitted)} claimed this period`, "blue")}
+      ${kpi("Approved amount", "approvedAmount", amount.approved, `${pct(amount.approved, amount.submitted)} of submitted amount`, "green")}
+      ${kpi("Paid amount", "paidAmount", amount.paid, `${pct(amount.paid, amount.approved)} of approved amount`, "blue")}
+      ${kpi("Rejected amount at risk", "rejectedAmount", amount.rejected, `${money(amount.rejected)} at risk`, "green")}
+    </div>
 
     <div class="dashboard-grid">
       ${panel("Claims Submitted vs Paid Over Time", trendChart(submittedSeries, paidSeries, labels, "Claims submitted", "Claims paid"))}
       ${panel("Claims by Current Status", barChart(statusItems))}
+      ${panel("Claim Amount Submitted vs Paid Over Time", trendChart(submittedAmountSeries, paidAmountSeries, labels, "Submitted amount", "Paid amount"))}
+      ${panel("Claim Amount by Current Status", barChart(amountItems))}
       ${panel("Claims Processing Outcome", outcomePanel(t))}
       ${panel("Claims Submitted by Facility Level", table([
         { label: "Facility Level", key: "level" },
         { label: "Submitted", key: "submitted" },
+        { label: "Submitted Amount", key: "submittedAmount" },
         { label: "Approved", key: "approved" },
+        { label: "Approved Amount", key: "approvedAmount" },
         { label: "% Approved", key: "approvedPct" },
         { label: "Rejected", key: "rejected" },
         { label: "% Rejected", key: "rejectedPct" },
         { label: "Paid", key: "paid" },
+        { label: "Paid Amount", key: "paidAmount" },
         { label: "% Paid", key: "paidPct" }
       ], facilityRows(), ["approvedPct", "rejectedPct", "paidPct"], "facility"))}
       ${panel("Provider Claims Analysis", table([
@@ -618,9 +666,12 @@ function claimsPage() {
         { label: "County", key: "county" },
         { label: "Facility Level", key: "level" },
         { label: "Claims Submitted", key: "submitted" },
+        { label: "Submitted Amount", key: "submittedAmount" },
         { label: "Claims Approved", key: "approved" },
+        { label: "Approved Amount", key: "approvedAmount" },
         { label: "% Approved", key: "approvedPct" },
         { label: "Claims Paid", key: "paid" },
+        { label: "Paid Amount", key: "paidAmount" },
         { label: "% Paid", key: "paidPct" },
         { label: "Claims Rejected", key: "rejected" }
       ], claimsRowsForTable(), ["approvedPct", "paidPct"], "provider"), "wide")}
@@ -966,15 +1017,25 @@ function patientRevenueSummary() {
 
 function claimsSection() {
   const t = totals();
+  const amount = claimAmounts();
   const labels = ["Jul 1", "Jul 5", "Jul 10", "Jul 15", "Jul 20", "Jul 25", "Jul 31"];
   const submittedSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => t.submitted * n);
   const paidSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => t.paid * n);
+  const submittedAmountSeries = [0.13, 0.11, 0.16, 0.14, 0.15, 0.17, 0.14].map((n) => amount.submitted * n);
+  const paidAmountSeries = [0.11, 0.1, 0.13, 0.12, 0.14, 0.16, 0.12].map((n) => amount.paid * n);
   const statusItems = [
     { label: "Submitted", short: "Submitted", value: t.submitted, color: "#285a9e" },
     { label: "Rejected", short: "Rejected", value: t.rejected, color: "#8ea9cf" },
     { label: "Under Review", short: "Review", value: t.review, color: "#efd585" },
     { label: "Approved", short: "Approved", value: t.approved, color: "#72bd4d" },
     { label: "Paid", short: "Paid", value: t.paid, color: "#4f8fcc" }
+  ];
+  const amountItems = [
+    { label: "Submitted Amount", short: "Submitted", value: amount.submitted, color: "#285a9e" },
+    { label: "Rejected Amount", short: "Rejected", value: amount.rejected, color: "#8ea9cf" },
+    { label: "Under Review Amount", short: "Review", value: amount.review, color: "#efd585" },
+    { label: "Approved Amount", short: "Approved", value: amount.approved, color: "#72bd4d" },
+    { label: "Paid Amount", short: "Paid", value: amount.paid, color: "#4f8fcc" }
   ];
 
   return `
@@ -987,17 +1048,29 @@ function claimsSection() {
       ${kpi("Claims approved", "approved", t.approved, `${pct(t.approved, t.submitted)} of submitted claims`, "green")}
       ${kpi("Claims paid", "paid", t.paid, `${pct(t.paid, t.approved)} of approved claims`, "blue")}
     </div>
+    <div class="section-title finance-section-title">Claims Amounts</div>
+    <div class="kpi-grid four">
+      ${kpi("Submitted amount", "submittedAmount", amount.submitted, `${money(amount.submitted)} claimed this period`, "blue")}
+      ${kpi("Approved amount", "approvedAmount", amount.approved, `${pct(amount.approved, amount.submitted)} of submitted amount`, "green")}
+      ${kpi("Paid amount", "paidAmount", amount.paid, `${pct(amount.paid, amount.approved)} of approved amount`, "blue")}
+      ${kpi("Rejected amount at risk", "rejectedAmount", amount.rejected, `${money(amount.rejected)} at risk`, "green")}
+    </div>
     <div class="dashboard-grid">
       ${panel("Claims Submitted vs Paid Over Time", trendChart(submittedSeries, paidSeries, labels, "Claims submitted", "Claims paid"))}
       ${panel("Claims by Current Status", barChart(statusItems))}
+      ${panel("Claim Amount Submitted vs Paid Over Time", trendChart(submittedAmountSeries, paidAmountSeries, labels, "Submitted amount", "Paid amount"))}
+      ${panel("Claim Amount by Current Status", barChart(amountItems))}
       ${panel("Claims Submitted by Facility Level", table([
         { label: "Facility Level", key: "level" },
         { label: "Submitted", key: "submitted" },
+        { label: "Submitted Amount", key: "submittedAmount" },
         { label: "Approved", key: "approved" },
+        { label: "Approved Amount", key: "approvedAmount" },
         { label: "% Approved", key: "approvedPct" },
         { label: "Rejected", key: "rejected" },
         { label: "% Rejected", key: "rejectedPct" },
         { label: "Paid", key: "paid" },
+        { label: "Paid Amount", key: "paidAmount" },
         { label: "% Paid", key: "paidPct" }
       ], facilityRows(), ["approvedPct", "rejectedPct", "paidPct"], "facility"))}
       ${panel("Provider Claims Analysis", table([
@@ -1005,9 +1078,12 @@ function claimsSection() {
         { label: "County", key: "county" },
         { label: "Facility Level", key: "level" },
         { label: "Claims Submitted", key: "submitted" },
+        { label: "Submitted Amount", key: "submittedAmount" },
         { label: "Claims Approved", key: "approved" },
+        { label: "Approved Amount", key: "approvedAmount" },
         { label: "% Approved", key: "approvedPct" },
         { label: "Claims Paid", key: "paid" },
+        { label: "Paid Amount", key: "paidAmount" },
         { label: "% Paid", key: "paidPct" },
         { label: "Claims Rejected", key: "rejected" }
       ], claimsRowsForTable(), ["approvedPct", "paidPct"], "provider"), "wide")}
